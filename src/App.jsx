@@ -12,51 +12,73 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session ?? null);
+    const init = async () => {
+      // Espera a que se cargue la sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session ?? null);
+      setLoading(false);
     };
-    getSession();
+    init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSession(session)
-    );
+    // Escucha cambios de sesión
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!session) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, role, branch_id, branches (name)')
-        .eq('id', session.user.id)
-        .single();
+useEffect(() => {
+  const fetchProfile = async () => {
+    if (!session) {
+      setProfile(null);
+      setLoading(false); // 🔹 Esto es lo que evita el doble inicio
+      return;
+    }
 
-      if (error) console.error(error);
-      setProfile(data);
-      setLoading(false);
-    };
-    fetchProfile();
-  }, [session]);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, role, branch_id, branches (name)')
+      .eq('id', session.user.id)
+      .single();
 
-  if (loading) return <div className="loading">Cargando...</div>;
+    if (!error) setProfile(data);
+    setLoading(false);
+  };
+  fetchProfile();
+}, [session]);
 
+
+  // 🔹 Mostrar pantalla de carga mientras se confirma sesión
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#000',
+        color: '#fff',
+        fontFamily: 'system-ui',
+      }}>
+        <h2>Iniciando...</h2>
+      </div>
+    );
+  }
+
+  // 🔹 Rutas
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"
         element={
-          session && profile?.role === 'sucursal' ? (
-            <CajeroPage session={session} profile={profile} />
-          ) : session && profile?.role === 'supervisor' ? (
-            <SupervisorPage session={session} profile={profile} />
+          session ? (
+            profile?.role === 'sucursal' ? (
+              <CajeroPage session={session} profile={profile} />
+            ) : (
+              <SupervisorPage session={session} profile={profile} />
+            )
           ) : (
             <Navigate to="/login" replace />
           )

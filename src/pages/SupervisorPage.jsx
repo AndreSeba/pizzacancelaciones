@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import Swal from 'sweetalert2';
 
 export default function SupervisorPage({ profile }) {
   const [branches, setBranches] = useState([]);
@@ -22,6 +23,29 @@ export default function SupervisorPage({ profile }) {
     loadBranches();
     loadRecords();
   }, []);
+
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: 'Cerrar sesión',
+      text: '¿Seguro que deseas salir?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, salir',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+    });
+    if (!result.isConfirmed) return;
+
+    await supabase.auth.signOut();
+    await Swal.fire({
+      icon: 'success',
+      title: 'Sesión cerrada',
+      timer: 1200,
+      showConfirmButton: false,
+    });
+    window.location.href = '/login';
+  };
 
   const loadBranches = async () => {
     const { data, error } = await supabase
@@ -48,6 +72,7 @@ export default function SupervisorPage({ profile }) {
         `
         id,
         date,
+        turno,
         total_cancelled,
         total_sent,
         cashier_name,
@@ -115,7 +140,6 @@ export default function SupervisorPage({ profile }) {
         `
         id,
         cantidad,
-        turno,
         flavors ( name ),
         cancellation_reasons ( reason )
       `
@@ -138,61 +162,69 @@ export default function SupervisorPage({ profile }) {
     [detailPizzas]
   );
 
-    const handleSaveValidation = async () => {
+
+  const handleSaveValidation = async () => {
     const valor = parseInt(llegaron, 10);
     if (Number.isNaN(valor) || valor < 0) {
-        setMsg('⚠️ Ingrese un número válido de pizzas que llegaron a central');
-        return;
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Valor inválido',
+        text: 'Por favor, ingrese un número válido de pizzas que llegaron a central.',
+      });
+      return;
     }
 
     setSavingValidation(true);
     setMsg('');
 
     try {
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from('cancellation_records')
         .update({ total_sent: valor })
         .eq('id', selectedRecord.id)
         .select();
 
-        if (error) {
+      if (error) {
         console.error('Error guardando validación:', error);
         setMsg('❌ Error al guardar la validación');
         setSavingValidation(false);
         return;
-        }
+      }
 
-        // Si no devuelve nada (por RLS u otro motivo)
-        if (!data || data.length === 0) {
+      if (!data || data.length === 0) {
         setMsg('⚠️ No se pudo verificar la actualización (revisa políticas RLS)');
         setSavingValidation(false);
         return;
-        }
+      }
 
-        const updated = data[0];
+      const updated = data[0];
+      setMsg('Validación guardada correctamente');
 
-        // ✅ Mensaje de éxito
-        setMsg('✅ Validación guardada correctamente');
-
-        // ✅ Actualiza en tabla sin recargar
-        setRecords((prev) =>
+      // Actualiza tabla y registro seleccionado
+      setRecords((prev) =>
         prev.map((r) =>
-            r.id === selectedRecord.id ? { ...r, total_sent: updated.total_sent } : r
+          r.id === selectedRecord.id ? { ...r, total_sent: updated.total_sent } : r
         )
-        );
-
-        // ✅ Actualiza detalle actual
-        setSelectedRecord((prev) =>
+      );
+      setSelectedRecord((prev) =>
         prev ? { ...prev, total_sent: updated.total_sent } : prev
-        );
-    } catch (e) {
-        console.error('Excepción al guardar:', e);
-        setMsg('❌ Error inesperado al guardar');
-    } finally {
-        setSavingValidation(false);
-    }
-    };
+      );
 
+      // Mostrar mensaje de guardado
+      await Swal.fire({
+        icon: 'success',
+        title: 'Validación guardada correctamente',
+        text: 'La validación ha sido guardada con éxito.',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (e) {
+      console.error('Excepción al guardar:', e);
+      setMsg('Error inesperado al guardar');
+    } finally {
+      setSavingValidation(false);
+    }
+  };
 
   const getDiscrepancia = (record) => {
     if (record.total_sent == null) return { label: 'Pendiente', color: '#ffcc00' };
@@ -213,9 +245,28 @@ export default function SupervisorPage({ profile }) {
         backgroundColor: '#050505',
         color: '#fff',
         minHeight: '100vh',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily:
+          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
+      {/* 🔹 Botón Salir */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <button
+          onClick={handleLogout}
+          style={{
+            background: '#b71c1c',
+            border: 'none',
+            borderRadius: 8,
+            color: '#fff',
+            padding: '6px 12px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          🚪 Salir
+        </button>
+      </div>
+
       {/* Header */}
       <header style={{ textAlign: 'center', marginBottom: 24 }}>
         <h1 style={{ color: '#ff3b30', margin: 0 }}>🍕 Pizza Río - Supervisor</h1>
@@ -322,7 +373,7 @@ export default function SupervisorPage({ profile }) {
         </div>
       </section>
 
-      {/* Cards de resumen */}
+      {/* Cards resumen */}
       <section
         style={{
           display: 'grid',
@@ -331,46 +382,25 @@ export default function SupervisorPage({ profile }) {
           marginBottom: 24,
         }}
       >
-        <div
-          style={{
-            background: '#111',
-            borderRadius: 16,
-            padding: 16,
-            textAlign: 'center',
-          }}
-        >
+        <div style={{ background: '#111', borderRadius: 16, padding: 16, textAlign: 'center' }}>
           <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Total Registros</p>
           <h2 style={{ margin: '6px 0 0', fontSize: 28 }}>{totals.totalRegistros}</h2>
         </div>
-        <div
-          style={{
-            background: '#111',
-            borderRadius: 16,
-            padding: 16,
-            textAlign: 'center',
-          }}
-        >
+        <div style={{ background: '#111', borderRadius: 16, padding: 16, textAlign: 'center' }}>
           <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Pizzas Canceladas</p>
           <h2 style={{ margin: '6px 0 0', fontSize: 28, color: '#ffcc00' }}>
             {totals.totalCanceladas}
           </h2>
         </div>
-        <div
-          style={{
-            background: '#111',
-            borderRadius: 16,
-            padding: 16,
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Enviadas a Sede</p>
+        <div style={{ background: '#111', borderRadius: 16, padding: 16, textAlign: 'center' }}>
+          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Enviadas a Central</p>
           <h2 style={{ margin: '6px 0 0', fontSize: 28, color: '#4caf50' }}>
             {totals.totalEnviadas}
           </h2>
         </div>
       </section>
 
-      {/* Tabla de registros */}
+      {/* Tabla */}
       <section
         style={{
           background: '#111',
@@ -379,9 +409,7 @@ export default function SupervisorPage({ profile }) {
           boxShadow: '0 0 16px rgba(0,0,0,0.6)',
         }}
       >
-        <h3 style={{ marginTop: 0, marginBottom: 4, color: '#ffcc00' }}>
-          Registros de Cancelaciones
-        </h3>
+        <h3 style={{ marginTop: 0, marginBottom: 4, color: '#ffcc00' }}>Registros de Cancelaciones</h3>
         <p style={{ marginTop: 0, color: '#aaa', fontSize: 13 }}>
           Mostrando {records.length} registros
         </p>
@@ -402,20 +430,13 @@ export default function SupervisorPage({ profile }) {
               <thead>
                 <tr style={{ color: '#ccc' }}>
                   <th style={{ padding: '8px 4px', textAlign: 'left' }}>Fecha</th>
+                  <th style={{ padding: '8px 4px', textAlign: 'left' }}>Turno</th>
                   <th style={{ padding: '8px 4px', textAlign: 'left' }}>Sucursal</th>
                   <th style={{ padding: '8px 4px', textAlign: 'left' }}>Cajero</th>
-                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>
-                    Total Canceladas
-                  </th>
-                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>
-                    Enviadas a Sede
-                  </th>
-                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>
-                    Discrepancia
-                  </th>
-                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>
-                    Detalles
-                  </th>
+                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>Total Canceladas</th>
+                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>Enviadas a central</th>
+                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>Discrepancia</th>
+                  <th style={{ padding: '8px 4px', textAlign: 'center' }}>Detalles</th>
                 </tr>
               </thead>
               <tbody>
@@ -423,18 +444,13 @@ export default function SupervisorPage({ profile }) {
                   const disc = getDiscrepancia(r);
                   return (
                     <tr key={r.id}>
-                      <td style={{ padding: '6px 4px' }}>{r.date}</td>
-                      <td style={{ padding: '6px 4px' }}>
-                        {r.branches?.name || '—'}
-                      </td>
-                      <td style={{ padding: '6px 4px' }}>{r.cashier_name}</td>
-                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                        {r.total_cancelled}
-                      </td>
-                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                        {r.total_sent ?? 0}
-                      </td>
-                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                      <td>{r.date}</td>
+                      <td>{r.turno}</td>
+                      <td>{r.branches?.name || '—'}</td>
+                      <td>{r.cashier_name}</td>
+                      <td style={{ textAlign: 'center' }}>{r.total_cancelled}</td>
+                      <td style={{ textAlign: 'center' }}>{r.total_sent ?? 0}</td>
+                      <td style={{ textAlign: 'center' }}>
                         <span
                           style={{
                             display: 'inline-block',
@@ -448,7 +464,7 @@ export default function SupervisorPage({ profile }) {
                           {disc.label}
                         </span>
                       </td>
-                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center' }}>
                         <button
                           onClick={() => openDetail(r)}
                           style={{
@@ -467,9 +483,7 @@ export default function SupervisorPage({ profile }) {
                             fontSize: 13,
                           }}
                         >
-                          {selectedRecord && selectedRecord.id === r.id
-                            ? 'Ocultar'
-                            : 'Ver'}
+                          {selectedRecord && selectedRecord.id === r.id ? 'Ocultar' : 'Ver'}
                         </button>
                       </td>
                     </tr>
@@ -481,7 +495,7 @@ export default function SupervisorPage({ profile }) {
         )}
       </section>
 
-      {/* Tarjeta de detalle / validación */}
+      {/* Detalle */}
       {selectedRecord && (
         <section
           style={{
@@ -492,12 +506,11 @@ export default function SupervisorPage({ profile }) {
             boxShadow: '0 0 16px rgba(0,0,0,0.6)',
           }}
         >
-          <h3 style={{ marginTop: 0, color: '#ffcc00' }}>
-            Detalle del registro
-          </h3>
+          <h3 style={{ marginTop: 0, color: '#ffcc00' }}>Detalle del registro</h3>
           <p style={{ margin: 0, color: '#ccc', fontSize: 14 }}>
-            <b>Fecha:</b> {selectedRecord.date} &nbsp; | &nbsp;
-            <b>Sucursal:</b> {selectedRecord.branches?.name || '—'} &nbsp; | &nbsp;
+            <b>Fecha:</b> {selectedRecord.date} &nbsp;|&nbsp;
+            <b>Turno:</b> {selectedRecord.turno} &nbsp;|&nbsp;
+            <b>Sucursal:</b> {selectedRecord.branches?.name || '—'} &nbsp;|&nbsp;
             <b>Cajero:</b> {selectedRecord.cashier_name}
           </p>
 
@@ -510,61 +523,58 @@ export default function SupervisorPage({ profile }) {
               <div style={{ marginTop: 16 }}>
                 {detailPizzas.map((p) => (
                   <p key={p.id} style={{ margin: '4px 0', color: '#ddd' }}>
-                     {p.flavors?.name || '—'} — {p.cancellation_reasons?.reason || '—'} —{' '}
-                    {p.turno} — {p.cantidad}u
+                    🍕 {p.flavors?.name || '—'} — {p.cancellation_reasons?.reason || '—'} — {p.cantidad}u
                   </p>
                 ))}
               </div>
 
-                <div
+              <div
                 style={{
-                    marginTop: 16,
-                    padding: 12,
-                    borderRadius: 12,
-                    background: '#181818',
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                    alignItems: 'center',
+                  marginTop: 16,
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#181818',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                  alignItems: 'center',
                 }}
-                >
+              >
                 <p style={{ margin: 0 }}>
-                    <b>Total pizzas reportadas:</b> {totalPizzasDetalle}
+                  <b>Total pizzas reportadas:</b> {totalPizzasDetalle}
                 </p>
 
                 {selectedRecord.total_sent > 0 ? (
-                    <>
-                    <p style={{ margin: 0, color: '#4caf50' }}>
-                        ✅ Validación realizada: llegaron {selectedRecord.total_sent} pizzas.
-                    </p>
-                    </>
+                  <p style={{ margin: 0, color: '#4caf50' }}>
+                     Validación realizada: llegaron {selectedRecord.total_sent} pizzas.
+                  </p>
                 ) : (
-                    <>
+                  <>
                     <div>
-                        <label style={{ fontSize: 13, color: '#ddd' }}>
+                      <label style={{ fontSize: 13, color: '#ddd' }}>
                         Pizzas que llegaron a central
-                        </label>
-                        <input
+                      </label>
+                      <input
                         type="number"
                         min="0"
                         value={llegaron}
                         onChange={(e) => setLlegaron(e.target.value)}
                         style={{
-                            marginLeft: 8,
-                            padding: 6,
-                            borderRadius: 8,
-                            border: '1px solid #333',
-                            background: '#000',
-                            color: '#fff',
-                            width: 100,
+                          marginLeft: 8,
+                          padding: 6,
+                          borderRadius: 8,
+                          border: '1px solid #333',
+                          background: '#000',
+                          color: '#fff',
+                          width: 100,
                         }}
-                        />
+                      />
                     </div>
 
                     <button
-                        onClick={handleSaveValidation}
-                        disabled={savingValidation}
-                        style={{
+                      onClick={handleSaveValidation}
+                      disabled={savingValidation}
+                      style={{
                         background: '#4caf50',
                         color: '#fff',
                         border: 'none',
@@ -572,20 +582,15 @@ export default function SupervisorPage({ profile }) {
                         padding: '6px 14px',
                         cursor: 'pointer',
                         fontWeight: 600,
-                        }}
+                      }}
                     >
-                        {savingValidation ? 'Guardando...' : 'Guardar validación'}
+                      {savingValidation ? 'Guardando...' : 'Guardar validación'}
                     </button>
-                    </>
+                  </>
                 )}
-                </div>
+              </div>
 
-
-              {msg && (
-                <p style={{ marginTop: 10, color: '#ffcc00', fontSize: 13 }}>
-                  {msg}
-                </p>
-              )}
+              {msg && <p style={{ marginTop: 10, color: '#ffcc00', fontSize: 13 }}>{msg}</p>}
             </>
           )}
         </section>
@@ -593,4 +598,3 @@ export default function SupervisorPage({ profile }) {
     </div>
   );
 }
- 
