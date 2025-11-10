@@ -32,7 +32,7 @@ useEffect(() => {
   const fetchProfile = async () => {
     if (!session) {
       setProfile(null);
-      setLoading(false); // 🔹 Esto es lo que evita el doble inicio
+      setLoading(false);
       return;
     }
 
@@ -49,7 +49,6 @@ useEffect(() => {
 }, [session]);
 
 
-  // 🔹 Mostrar pantalla de carga mientras se confirma sesión
   if (loading) {
     return (
       <div style={{
@@ -66,7 +65,6 @@ useEffect(() => {
     );
   }
 
-  // 🔹 Rutas
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

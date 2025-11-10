@@ -59,7 +59,7 @@ export default function CajeroPage({ session, profile }) {
     setPizzas(updated);
   };
 
-  // 🔹 Cerrar sesión
+  // Cerrar sesión
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: '¿Cerrar sesión?',
@@ -86,7 +86,7 @@ export default function CajeroPage({ session, profile }) {
     window.location.href = '/login';
   };
 
-  // 🔹 Guardar registro
+  // Guardar registro
   const handleSave = async () => {
     // Validaciones con SweetAlert
     if (!cajero.trim()) {
@@ -136,7 +136,7 @@ export default function CajeroPage({ session, profile }) {
 
       if (err1) throw err1;
 
-      // Insertar detalle SIN turno
+      //Insertar detalle SIN turno
       const pizzasData = pizzas.map((p) => ({
         record_id: record.id,
         flavor_id: p.flavor,
@@ -147,7 +147,7 @@ export default function CajeroPage({ session, profile }) {
       const { error: err2 } = await supabase.from('cancelled_pizzas').insert(pizzasData);
       if (err2) throw err2;
 
-      // ✅ Éxito
+      // Éxito
       await Swal.fire({
         icon: 'success',
         title: 'Registro guardado correctamente',
@@ -187,7 +187,7 @@ export default function CajeroPage({ session, profile }) {
 
   return (
     <div style={{ padding: 24, backgroundColor: '#0c0c0c', color: '#fff', minHeight: '100vh' }}>
-      {/* 🔹 Botón de salir */}
+      {/*  Botón de salir */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button
           onClick={handleLogout}
@@ -201,11 +201,11 @@ export default function CajeroPage({ session, profile }) {
             fontWeight: 'bold',
           }}
         >
-          🚪 Salir
+          →  Salir
         </button>
       </div>
 
-      <h1 style={{ color: '#f44336', textAlign: 'center' }}>🍕 Pizza Río</h1>
+      <h1 style={{ color: '#fbd203ff', textAlign: 'center' }}>Pizza Río</h1>
       <h3 style={{ textAlign: 'center', marginBottom: 30 }}>Registro de Cancelaciones</h3>
 
       {/* DATOS DEL TURNO */}

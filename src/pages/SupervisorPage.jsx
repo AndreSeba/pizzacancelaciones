@@ -263,13 +263,13 @@ export default function SupervisorPage({ profile }) {
             fontWeight: 'bold',
           }}
         >
-          🚪 Salir
+          →  Salir
         </button>
       </div>
 
       {/* Header */}
       <header style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ color: '#ff3b30', margin: 0 }}>🍕 Pizza Río - Supervisor</h1>
+        <h1 style={{ color: '#ff3b30', margin: 0 }}>Pizza Río - Supervisor</h1>
         <p style={{ color: '#aaa', marginTop: 4 }}>Vista de Registros</p>
       </header>
 

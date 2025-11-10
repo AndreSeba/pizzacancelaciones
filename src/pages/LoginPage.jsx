@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
+import logo from '/Logo - Pizza Rio.png'; 
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -84,7 +85,19 @@ export default function LoginPage() {
           textAlign: 'center',
         }}
       >
-        <h1 style={{ color: '#f44336', marginBottom: 8 }}>🍕 Pizza Río</h1>
+        {/* Logo en la parte superior */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <img
+            src={logo}
+            alt="Pizza Río"
+            style={{
+              width: '150px',  // Ajusta el tamaño del logo según sea necesario
+              height: 'auto',
+            }}
+          />
+        </div>
+
+        <h1 style={{ color: '#fbd203ff', marginBottom: 8 }}>Pizza Río</h1>
         <p style={{ color: '#ccc', marginBottom: 30 }}>Registro de Cancelaciones</p>
 
         <label style={{ display: 'block', textAlign: 'left', marginBottom: 15 }}>
@@ -146,7 +159,7 @@ export default function LoginPage() {
         </button>
 
         <p style={{ marginTop: 30, color: '#555', fontSize: 13 }}>
-          © Pizza Río — Santa Cruz, Bolivia
+          © Pizza Río — Bolivia
         </p>
       </form>
     </div>
