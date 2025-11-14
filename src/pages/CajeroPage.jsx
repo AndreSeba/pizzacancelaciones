@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
 
 // Fecha actual
-const TODAY = new Date().toISOString().split('T')[0];
+const TODAY = new Date().toLocaleDateString('en-GB'); 
 
 export default function CajeroPage({ session, profile }) {
   const [flavors, setFlavors] = useState([]);
