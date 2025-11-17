@@ -76,3 +76,24 @@ body {
   align-items: center;
   justify-content: center;
 }
+/* estilos al input de fecha */
+.mi-datepicker-custom-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #111;
+  color: #fff;
+  /* Importante para que el width funcione bien */
+  box-sizing: border-box; 
+}
+/* Estilos para el DatePicker del Supervisor */
+.mi-datepicker-supervisor {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #000;
+  color: #fff;
+  box-sizing: border-box; /* Importante para que el width: 100% respete el padding */
+}

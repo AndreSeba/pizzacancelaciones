@@ -2,11 +2,37 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
 
+// 🔹 NUEVO: imports para fecha y DatePicker
+import { format } from 'date-fns-tz';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
+// 🔹 NUEVO: zona horaria Bolivia
+const TIME_ZONE = 'America/La_Paz';
+
+// 🔹 NUEVO: helper para mostrar fecha yyyy-MM-dd -> dd-MM-yyyy
+const formatDisplayDate = (dateString) => {
+  if (!dateString) return '—';
+  try {
+    const dateObj = new Date(`${dateString}T00:00:00`);
+    return format(dateObj, 'dd-MM-yyyy', { timeZone: TIME_ZONE });
+  } catch {
+    return dateString;
+  }
+};
+
+// 🔹 NUEVO: helper para convertir Date -> yyyy-MM-dd
+const toYYYYMMDD = (dateObj) => {
+  if (!dateObj) return '';
+  return format(dateObj, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+};
+
 export default function SupervisorPage({ profile }) {
   const [branches, setBranches] = useState([]);
   const [filters, setFilters] = useState({
     branchId: 'all',
-    date: '',
+    // 🔹 CAMBIO: de '' a null para trabajar con DatePicker
+    date: null,
   });
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,8 +112,10 @@ export default function SupervisorPage({ profile }) {
       query = query.eq('branch_id', filters.branchId);
     }
 
+    // 🔹 CAMBIO: ahora filters.date es un Date, convertir a yyyy-MM-dd
     if (filters.date) {
-      query = query.eq('date', filters.date);
+      const formattedDate = toYYYYMMDD(filters.date);
+      query = query.eq('date', formattedDate);
     }
 
     const { data, error } = await query;
@@ -116,7 +144,8 @@ export default function SupervisorPage({ profile }) {
   }, [records]);
 
   const handleClearFilters = () => {
-    setFilters({ branchId: 'all', date: '' });
+    // 🔹 CAMBIO: resetear date a null (para DatePicker)
+    setFilters({ branchId: 'all', date: null });
     loadRecords();
   };
 
@@ -161,7 +190,6 @@ export default function SupervisorPage({ profile }) {
     () => detailPizzas.reduce((acc, p) => acc + (p.cantidad || 0), 0),
     [detailPizzas]
   );
-
 
   const handleSaveValidation = async () => {
     const valor = parseInt(llegaron, 10);
@@ -322,22 +350,18 @@ export default function SupervisorPage({ profile }) {
             </select>
           </div>
 
+          {/* 🔹 CAMBIO: DatePicker en lugar de input type="date" */}
           <div style={{ width: 200 }}>
             <label style={{ fontSize: 13, color: '#ddd' }}>Fecha</label>
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, date: e.target.value }))
+            <DatePicker
+              selected={filters.date}
+              onChange={(date) =>
+                setFilters((f) => ({ ...f, date }))
               }
-              style={{
-                width: '100%',
-                padding: 8,
-                borderRadius: 8,
-                border: '1px solid #333',
-                background: '#000',
-                color: '#fff',
-              }}
+              dateFormat="dd-MM-yyyy"
+              isClearable
+              placeholderText="Seleccionar fecha..."
+              className="mi-datepicker-supervisor"
             />
           </div>
 
@@ -444,7 +468,8 @@ export default function SupervisorPage({ profile }) {
                   const disc = getDiscrepancia(r);
                   return (
                     <tr key={r.id}>
-                      <td>{r.date}</td>
+                      {/* 🔹 CAMBIO: mostrar fecha formateada */}
+                      <td>{formatDisplayDate(r.date)}</td>
                       <td>{r.turno}</td>
                       <td>{r.branches?.name || '—'}</td>
                       <td>{r.cashier_name}</td>
@@ -508,7 +533,7 @@ export default function SupervisorPage({ profile }) {
         >
           <h3 style={{ marginTop: 0, color: '#ffcc00' }}>Detalle del registro</h3>
           <p style={{ margin: 0, color: '#ccc', fontSize: 14 }}>
-            <b>Fecha:</b> {selectedRecord.date} &nbsp;|&nbsp;
+            <b>Fecha:</b> {formatDisplayDate(selectedRecord.date)} &nbsp;|&nbsp;
             <b>Turno:</b> {selectedRecord.turno} &nbsp;|&nbsp;
             <b>Sucursal:</b> {selectedRecord.branches?.name || '—'} &nbsp;|&nbsp;
             <b>Cajero:</b> {selectedRecord.cashier_name}
