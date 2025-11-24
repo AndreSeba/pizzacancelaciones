@@ -149,7 +149,7 @@ export default function CajeroPage({ session, profile }) {
                 .insert([{
                     branch_id: profile.branch_id,
                     cashier_name: cajero,
-                    date: format(fecha, 'yyyy-MM-dd'),
+                    date: format(fecha, 'yyyy-MM-dd', { timeZone: TIME_ZONE }), // ✅ ARREGLADO
                     turno,
                     total_cancelled: pizzas.length,
                     created_by: session.user.id,
@@ -217,29 +217,52 @@ export default function CajeroPage({ session, profile }) {
     };
 
     // --- JSX ---
-    return (
-        <div style={{ padding: 24, backgroundColor: '#0c0c0c', color: '#fff', minHeight: '100vh' }}>
+return (
+    <div style={{ padding: 24, backgroundColor: '#0c0c0c', color: '#fff', minHeight: '100vh' }}>
 
-            {/* Salir */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-                <button
-                    onClick={handleLogout}
-                    style={{
-                        background: '#b71c1c',
-                        border: 'none',
-                        borderRadius: 8,
-                        color: '#fff',
-                        padding: '6px 12px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                    }}
-                >
-                    → Salir
-                </button>
+        {/* Header con Logo, Título y Botón Salir */}
+        <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 30,
+            flexWrap: 'wrap',
+            gap: 10
+        }}>
+            {/* Logo */}
+            <img 
+                src="/Logo - Pizza Rio.png" 
+                alt="Pizza Río Logo" 
+                style={{
+                    height: 60,
+                    width: 'auto',
+                    maxWidth: '150px',
+                    objectFit: 'contain'
+                }}
+            />
+            
+            {/* Título centrado */}
+            <div style={{ flex: 1, textAlign: 'center' }}>
+                <h1 style={{ color: '#fbd203ff', margin: 0 }}>Pizza Río</h1>
+                <h3 style={{ margin: '5px 0 0 0', fontWeight: 'normal' }}>Registro de Cancelaciones</h3>
             </div>
-
-            <h1 style={{ color: '#fbd203ff', textAlign: 'center' }}>Pizza Río</h1>
-            <h3 style={{ textAlign: 'center', marginBottom: 30 }}>Registro de Cancelaciones</h3>
+            
+            {/* Botón Salir */}
+            <button
+                onClick={handleLogout}
+                style={{
+                    background: '#b71c1c',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: '#fff',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                }}
+            >
+                → Salir
+            </button>
+        </div>
 
             {/* Datos del Turno */}
             <div

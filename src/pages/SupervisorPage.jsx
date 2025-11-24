@@ -2,15 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
 
-// 🔹 NUEVO: imports para fecha y DatePicker
 import { format } from 'date-fns-tz';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-// 🔹 NUEVO: zona horaria Bolivia
 const TIME_ZONE = 'America/La_Paz';
 
-// 🔹 NUEVO: helper para mostrar fecha yyyy-MM-dd -> dd-MM-yyyy
 const formatDisplayDate = (dateString) => {
   if (!dateString) return '—';
   try {
@@ -21,7 +18,6 @@ const formatDisplayDate = (dateString) => {
   }
 };
 
-// 🔹 NUEVO: helper para convertir Date -> yyyy-MM-dd
 const toYYYYMMDD = (dateObj) => {
   if (!dateObj) return '';
   return format(dateObj, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
@@ -31,7 +27,6 @@ export default function SupervisorPage({ profile }) {
   const [branches, setBranches] = useState([]);
   const [filters, setFilters] = useState({
     branchId: 'all',
-    // 🔹 CAMBIO: de '' a null para trabajar con DatePicker
     date: null,
   });
   const [records, setRecords] = useState([]);
@@ -112,7 +107,6 @@ export default function SupervisorPage({ profile }) {
       query = query.eq('branch_id', filters.branchId);
     }
 
-    // 🔹 CAMBIO: ahora filters.date es un Date, convertir a yyyy-MM-dd
     if (filters.date) {
       const formattedDate = toYYYYMMDD(filters.date);
       query = query.eq('date', formattedDate);
@@ -144,7 +138,6 @@ export default function SupervisorPage({ profile }) {
   }, [records]);
 
   const handleClearFilters = () => {
-    // 🔹 CAMBIO: resetear date a null (para DatePicker)
     setFilters({ branchId: 'all', date: null });
     loadRecords();
   };
@@ -277,8 +270,34 @@ export default function SupervisorPage({ profile }) {
           'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
-      {/* 🔹 Botón Salir */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+      {/* Header con Logo, Título y Botón Salir */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+        flexWrap: 'wrap',
+        gap: 10
+      }}>
+        {/* Logo */}
+        <img 
+          src="/Logo - Pizza Rio.png" 
+          alt="Pizza Río Logo" 
+          style={{
+            height: 60,
+            width: 'auto',
+            maxWidth: '150px',
+            objectFit: 'contain'
+          }}
+        />
+        
+        {/* Título centrado */}
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <h1 style={{ color: '#ff3b30', margin: 0 }}>Pizza Río - Supervisor</h1>
+          <p style={{ color: '#aaa', marginTop: 4, marginBottom: 0 }}>Vista de Registros</p>
+        </div>
+        
+        {/* Botón Salir */}
         <button
           onClick={handleLogout}
           style={{
@@ -291,15 +310,9 @@ export default function SupervisorPage({ profile }) {
             fontWeight: 'bold',
           }}
         >
-          →  Salir
+          → Salir
         </button>
       </div>
-
-      {/* Header */}
-      <header style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ color: '#ff3b30', margin: 0 }}>Pizza Río - Supervisor</h1>
-        <p style={{ color: '#aaa', marginTop: 4 }}>Vista de Registros</p>
-      </header>
 
       {/* Filtros */}
       <section
@@ -350,7 +363,7 @@ export default function SupervisorPage({ profile }) {
             </select>
           </div>
 
-          {/* 🔹 CAMBIO: DatePicker en lugar de input type="date" */}
+          {/*DatePicker en lugar de input type="date" */}
           <div style={{ width: 200 }}>
             <label style={{ fontSize: 13, color: '#ddd' }}>Fecha</label>
             <DatePicker
@@ -468,7 +481,7 @@ export default function SupervisorPage({ profile }) {
                   const disc = getDiscrepancia(r);
                   return (
                     <tr key={r.id}>
-                      {/* 🔹 CAMBIO: mostrar fecha formateada */}
+                      {/* CAMBIO: mostrar fecha formateada */}
                       <td>{formatDisplayDate(r.date)}</td>
                       <td>{r.turno}</td>
                       <td>{r.branches?.name || '—'}</td>
