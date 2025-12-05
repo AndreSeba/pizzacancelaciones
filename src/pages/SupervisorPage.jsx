@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
-
 import { format } from 'date-fns-tz';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import * as XLSX from 'xlsx';
 
 const TIME_ZONE = 'America/La_Paz';
 
@@ -207,13 +207,13 @@ export default function SupervisorPage({ profile }) {
 
       if (error) {
         console.error('Error guardando validación:', error);
-        setMsg('❌ Error al guardar la validación');
+        setMsg('Error al guardar la validación');
         setSavingValidation(false);
         return;
       }
 
       if (!data || data.length === 0) {
-        setMsg('⚠️ No se pudo verificar la actualización (revisa políticas RLS)');
+        setMsg('No se pudo verificar la actualización (revisa políticas RLS)');
         setSavingValidation(false);
         return;
       }
@@ -257,6 +257,166 @@ export default function SupervisorPage({ profile }) {
       return { label: `Faltan ${diff}`, color: '#e74c3c' };
 
     return { label: `Sobra ${Math.abs(diff)}`, color: '#e67e22' };
+  };
+
+  // Función para descargar Excel Resumen
+  const handleDownloadExcel = () => {
+    if (records.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No hay datos',
+        text: 'No hay registros para exportar',
+      });
+      return;
+    }
+
+    // Preparar datos para Excel
+    const excelData = records.map((r) => {
+      const disc = getDiscrepancia(r);
+      return {
+        Fecha: formatDisplayDate(r.date),
+        Turno: r.turno,
+        Sucursal: r.branches?.name || '—',
+        Cajero: r.cashier_name,
+        'Total Canceladas': r.total_cancelled,
+        'Enviadas a Central': r.total_sent ?? 0,
+        Discrepancia: disc.label,
+      };
+    });
+
+    // Crear libro de Excel
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Ajustar ancho de columnas
+    ws['!cols'] = [
+      { wch: 12 }, // Fecha
+      { wch: 8 },  // Turno
+      { wch: 20 }, // Sucursal
+      { wch: 25 }, // Cajero
+      { wch: 16 }, // Total Canceladas
+      { wch: 18 }, // Enviadas a Central
+      { wch: 18 }, // Discrepancia
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Registros');
+
+    // Descargar archivo
+    const fileName = `registros_cancelaciones_${format(new Date(), 'yyyy-MM-dd', { timeZone: TIME_ZONE })}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Excel descargado',
+      text: 'El archivo se descargó correctamente',
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  };
+
+  // Función para descargar Excel Detallado
+  const handleDownloadExcelDetallado = async () => {
+    if (records.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No hay datos',
+        text: 'No hay registros para exportar',
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: 'Generando Excel...',
+      text: 'Por favor espera',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      // Preparar datos con detalle
+      const excelData = [];
+
+      for (const r of records) {
+        // Obtener detalle de pizzas
+        const { data: pizzas } = await supabase
+          .from('cancelled_pizzas')
+          .select('cantidad, flavors(name), cancellation_reasons(reason)')
+          .eq('record_id', r.id);
+
+        const disc = getDiscrepancia(r);
+
+        if (pizzas && pizzas.length > 0) {
+          pizzas.forEach((p, index) => {
+            excelData.push({
+              Fecha: index === 0 ? formatDisplayDate(r.date) : '',
+              Turno: index === 0 ? r.turno : '',
+              Sucursal: index === 0 ? r.branches?.name || '—' : '',
+              Cajero: index === 0 ? r.cashier_name : '',
+              Sabor: p.flavors?.name || '—',
+              Motivo: p.cancellation_reasons?.reason || '—',
+              Cantidad: p.cantidad,
+              'Total Canceladas': index === 0 ? r.total_cancelled : '',
+              'Enviadas a Central': index === 0 ? (r.total_sent ?? 0) : '',
+              Discrepancia: index === 0 ? disc.label : '',
+            });
+          });
+        } else {
+          excelData.push({
+            Fecha: formatDisplayDate(r.date),
+            Turno: r.turno,
+            Sucursal: r.branches?.name || '—',
+            Cajero: r.cashier_name,
+            Sabor: '—',
+            Motivo: '—',
+            Cantidad: 0,
+            'Total Canceladas': r.total_cancelled,
+            'Enviadas a Central': r.total_sent ?? 0,
+            Discrepancia: disc.label,
+          });
+        }
+      }
+
+      // Crear libro de Excel
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Ajustar ancho de columnas
+      ws['!cols'] = [
+        { wch: 12 }, // Fecha
+        { wch: 8 },  // Turno
+        { wch: 20 }, // Sucursal
+        { wch: 25 }, // Cajero
+        { wch: 20 }, // Sabor
+        { wch: 25 }, // Motivo
+        { wch: 10 }, // Cantidad
+        { wch: 16 }, // Total Canceladas
+        { wch: 18 }, // Enviadas a Central
+        { wch: 18 }, // Discrepancia
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Detalle Registros');
+
+      // Descargar archivo
+      const fileName = `detalle_cancelaciones_${format(new Date(), 'yyyy-MM-dd', { timeZone: TIME_ZONE })}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Excel descargado',
+        text: 'El archivo con detalle se descargó correctamente',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error('Error generando Excel:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Hubo un error al generar el archivo Excel',
+      });
+    }
   };
 
   return (
@@ -446,10 +606,65 @@ export default function SupervisorPage({ profile }) {
           boxShadow: '0 0 16px rgba(0,0,0,0.6)',
         }}
       >
-        <h3 style={{ marginTop: 0, marginBottom: 4, color: '#ffcc00' }}>Registros de Cancelaciones</h3>
-        <p style={{ marginTop: 0, color: '#aaa', fontSize: 13 }}>
-          Mostrando {records.length} registros
-        </p>
+        {/* Header con título y botones de descarga */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 10,
+          marginBottom: 10
+        }}>
+          <div>
+            <h3 style={{ margin: 0, color: '#ffcc00' }}>Registros de Cancelaciones</h3>
+            <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 13 }}>
+              Mostrando {records.length} registros
+            </p>
+          </div>
+          
+          {/* Botones Descargar Excel */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleDownloadExcel}
+              disabled={records.length === 0}
+              style={{
+                background: records.length === 0 ? '#444' : '#2ecc71',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 16px',
+                cursor: records.length === 0 ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                opacity: records.length === 0 ? 0.5 : 1,
+              }}
+            >
+              Exportar Resumen
+            </button>
+            
+            <button
+              onClick={handleDownloadExcelDetallado}
+              disabled={records.length === 0}
+              style={{
+                background: records.length === 0 ? '#444' : '#3498db',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 16px',
+                cursor: records.length === 0 ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                opacity: records.length === 0 ? 0.5 : 1,
+              }}
+            >
+              Exportar Detallado
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           <p>Cargando registros...</p>
