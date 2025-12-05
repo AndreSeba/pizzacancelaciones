@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns-tz';
 
-// --- CAMBIO 1: DatePicker ---
+// --- DatePicker ---
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -21,6 +21,7 @@ const { localDate: initialDate, localHour: initialHour } = getLocalTime();
 
 const initialTurno = (initialHour >= 9 && initialHour < 15) ? 'AM' : 'PM';
 const MAX_DATE_ALLOWED = initialDate;
+const PAGE_SIZE = 5; // Cantidad de registros por página
 
 export default function CajeroPage({ session, profile }) {
     const [flavors, setFlavors] = useState([]);
@@ -35,6 +36,9 @@ export default function CajeroPage({ session, profile }) {
     const [loading, setLoading] = useState(false);
     const [records, setRecords] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+
+    // --- Paginación ---
+    const [page, setPage] = useState(0);
 
     // Cargar catálogos
     useEffect(() => {
@@ -52,22 +56,40 @@ export default function CajeroPage({ session, profile }) {
             setFlavors(f || []);
             setReasons(r || []);
 
-            loadRecords();
+            loadRecords(0); // Cargar primera página al inicio
         };
 
         loadData();
     }, []);
 
-    // Cargar registros recientes
-    const loadRecords = async () => {
+    // Cargar registros con paginación
+    const loadRecords = async (pageNumber) => {
+        const from = pageNumber * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
         const { data } = await supabase
             .from('cancellation_records')
             .select('id, date, turno, total_cancelled')
             .eq('created_by', session.user.id)
             .order('date', { ascending: false })
-            .limit(5);
+            .range(from, to);
 
         setRecords(data || []);
+    };
+
+    // Funciones para cambiar página
+    const handleNextPage = () => {
+        if (records.length < PAGE_SIZE) return; // No hay más páginas si la actual no está llena
+        const nextPage = page + 1;
+        setPage(nextPage);
+        loadRecords(nextPage);
+    };
+
+    const handlePrevPage = () => {
+        if (page === 0) return;
+        const prevPage = page - 1;
+        setPage(prevPage);
+        loadRecords(prevPage);
     };
 
     // Pizzas handlers
@@ -149,7 +171,7 @@ export default function CajeroPage({ session, profile }) {
                 .insert([{
                     branch_id: profile.branch_id,
                     cashier_name: cajero,
-                    date: format(fecha, 'yyyy-MM-dd', { timeZone: TIME_ZONE }), // ✅ ARREGLADO
+                    date: format(fecha, 'yyyy-MM-dd', { timeZone: TIME_ZONE }),
                     turno,
                     total_cancelled: pizzas.length,
                     created_by: session.user.id,
@@ -188,7 +210,10 @@ export default function CajeroPage({ session, profile }) {
             setCajero('');
             setFecha(new Date(`${currentDate}T00:00:00`));
             setTurno(currentTurno);
-            loadRecords();
+            
+            // Recargar registros (volvemos a la página 0 para ver el nuevo registro)
+            setPage(0);
+            loadRecords(0);
 
         } catch (e) {
             console.error(e);
@@ -216,53 +241,52 @@ export default function CajeroPage({ session, profile }) {
         setExpandedId({ id, data });
     };
 
-    // --- JSX ---
-return (
-    <div style={{ padding: 24, backgroundColor: '#0c0c0c', color: '#fff', minHeight: '100vh' }}>
+    return (
+        <div style={{ padding: 24, backgroundColor: '#0c0c0c', color: '#fff', minHeight: '100vh' }}>
 
-        {/* Header con Logo, Título y Botón Salir */}
-        <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 30,
-            flexWrap: 'wrap',
-            gap: 10
-        }}>
-            {/* Logo */}
-            <img 
-                src="/Logo - Pizza Rio.png" 
-                alt="Pizza Río Logo" 
-                style={{
-                    height: 60,
-                    width: 'auto',
-                    maxWidth: '150px',
-                    objectFit: 'contain'
-                }}
-            />
-            
-            {/* Título centrado */}
-            <div style={{ flex: 1, textAlign: 'center' }}>
-                <h1 style={{ color: '#fbd203ff', margin: 0 }}>Pizza Río</h1>
-                <h3 style={{ margin: '5px 0 0 0', fontWeight: 'normal' }}>Registro de Cancelaciones</h3>
+            {/* Header con Logo, Título y Botón Salir */}
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 30,
+                flexWrap: 'wrap',
+                gap: 10
+            }}>
+                {/* Logo */}
+                <img 
+                    src="/Logo - Pizza Rio.png" 
+                    alt="Pizza Río Logo" 
+                    style={{
+                        height: 60,
+                        width: 'auto',
+                        maxWidth: '150px',
+                        objectFit: 'contain'
+                    }}
+                />
+                
+                {/* Título centrado */}
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                    <h1 style={{ color: '#fbd203ff', margin: 0 }}>Pizza Río</h1>
+                    <h3 style={{ margin: '5px 0 0 0', fontWeight: 'normal' }}>Registro de Cancelaciones</h3>
+                </div>
+                
+                {/* Botón Salir */}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        background: '#b71c1c',
+                        border: 'none',
+                        borderRadius: 8,
+                        color: '#fff',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                    }}
+                >
+                    → Salir
+                </button>
             </div>
-            
-            {/* Botón Salir */}
-            <button
-                onClick={handleLogout}
-                style={{
-                    background: '#b71c1c',
-                    border: 'none',
-                    borderRadius: 8,
-                    color: '#fff',
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                }}
-            >
-                → Salir
-            </button>
-        </div>
 
             {/* Datos del Turno */}
             <div
@@ -475,58 +499,94 @@ return (
                     boxShadow: '0 0 12px rgba(255,0,0,0.1)',
                 }}
             >
-                <h4 style={{ marginBottom: 10, color: '#ffcc00' }}>Registros </h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <h4 style={{ margin: 0, color: '#ffcc00' }}>Registros</h4>
+                    <span style={{ fontSize: 12, color: '#888' }}>Página {page + 1}</span>
+                </div>
 
                 {records.length === 0 ? (
                     <p>No hay registros aún</p>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ textAlign: 'left', color: '#ccc' }}>
-                                <th style={{ padding: '6px 0' }}>Fecha</th>
-                                <th>Turno</th>
-                                <th>Total</th>
-                                <th>Detalle</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {records.map((r) => (
-                                <tr key={r.id}>
-                                    <td style={{ padding: '6px 0' }}>{r.date}</td>
-                                    <td>{r.turno}</td>
-                                    <td>{r.total_cancelled}</td>
-                                    <td>
-                                        <button
-                                            onClick={() => toggleExpand(r.id)}
-                                            style={{
-                                                background: '#f44336',
-                                                color: '#fff',
-                                                border: 'none',
-                                                borderRadius: 8,
-                                                padding: '4px 10px',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            {expandedId?.id === r.id ? 'Ocultar' : 'Ver'}
-                                        </button>
-
-                                        {expandedId?.id === r.id && (
-                                            <div style={{ marginTop: 8, paddingLeft: 10 }}>
-                                                {expandedId.data.map((p, i) => (
-                                                    <p key={i} style={{ fontSize: 14, color: '#ccc' }}>
-                                                        🍕 {p.flavor_id.name} — {p.reason_id.reason} — {p.cantidad}u
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </td>
+                    <>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ textAlign: 'left', color: '#ccc' }}>
+                                    <th style={{ padding: '6px 0' }}>Fecha</th>
+                                    <th>Turno</th>
+                                    <th>Total</th>
+                                    <th>Detalle</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                            </thead>
 
+                            <tbody>
+                                {records.map((r) => (
+                                    <tr key={r.id}>
+                                        <td style={{ padding: '6px 0' }}>{r.date}</td>
+                                        <td>{r.turno}</td>
+                                        <td>{r.total_cancelled}</td>
+                                        <td>
+                                            <button
+                                                onClick={() => toggleExpand(r.id)}
+                                                style={{
+                                                    background: '#f44336',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: 8,
+                                                    padding: '4px 10px',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                {expandedId?.id === r.id ? 'Ocultar' : 'Ver'}
+                                            </button>
+
+                                            {expandedId?.id === r.id && (
+                                                <div style={{ marginTop: 8, paddingLeft: 10 }}>
+                                                    {expandedId.data.map((p, i) => (
+                                                        <p key={i} style={{ fontSize: 14, color: '#ccc' }}>
+                                                            🍕 {p.flavor_id.name} — {p.reason_id.reason} — {p.cantidad}u
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        
+                        {/* Controles de Paginación */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 15 }}>
+                            <button 
+                                onClick={handlePrevPage} 
+                                disabled={page === 0}
+                                style={{
+                                    background: '#333',
+                                    color: page === 0 ? '#666' : '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    cursor: page === 0 ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Anterior
+                            </button>
+                            <button 
+                                onClick={handleNextPage} 
+                                disabled={records.length < PAGE_SIZE}
+                                style={{
+                                    background: '#333',
+                                    color: records.length < PAGE_SIZE ? '#666' : '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    cursor: records.length < PAGE_SIZE ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

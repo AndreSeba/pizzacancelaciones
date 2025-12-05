@@ -7,6 +7,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 
 const TIME_ZONE = 'America/La_Paz';
+const ITEMS_PER_PAGE = 10; // Cantidad de filas por página
 
 const formatDisplayDate = (dateString) => {
   if (!dateString) return '—';
@@ -29,6 +30,11 @@ export default function SupervisorPage({ profile }) {
     branchId: 'all',
     date: null,
   });
+  
+  // Estados para Paginación
+  const [page, setPage] = useState(1);
+  const [totalRecordsCount, setTotalRecordsCount] = useState(0);
+
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -40,10 +46,15 @@ export default function SupervisorPage({ profile }) {
   const [savingValidation, setSavingValidation] = useState(false);
   const [msg, setMsg] = useState('');
 
+  // Carga inicial de sucursales
   useEffect(() => {
     loadBranches();
-    loadRecords();
   }, []);
+
+  // Carga de registros cuando cambia la página
+  useEffect(() => {
+    loadRecords();
+  }, [page]);
 
   const handleLogout = async () => {
     const result = await Swal.fire({
@@ -87,6 +98,10 @@ export default function SupervisorPage({ profile }) {
     setDetailPizzas([]);
     setMsg('');
 
+    // Cálculo del rango para paginación
+    const from = (page - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
     let query = supabase
       .from('cancellation_records')
       .select(
@@ -99,9 +114,11 @@ export default function SupervisorPage({ profile }) {
         cashier_name,
         branch_id,
         branches ( name )
-      `
+      `,
+        { count: 'exact' } // Solicitamos el conteo exacto total
       )
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .range(from, to); // Aplicamos el rango
 
     if (filters.branchId !== 'all') {
       query = query.eq('branch_id', filters.branchId);
@@ -112,20 +129,26 @@ export default function SupervisorPage({ profile }) {
       query = query.eq('date', formattedDate);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       console.error('Error cargando registros', error);
       setRecords([]);
+      setTotalRecordsCount(0);
     } else {
       setRecords(data || []);
+      setTotalRecordsCount(count || 0);
     }
 
     setLoading(false);
   };
 
   const totals = useMemo(() => {
-    const totalRegistros = records.length;
+    // Usamos el count total de la BD para el total de registros
+    const totalRegistros = totalRecordsCount;
+    
+    // NOTA: Estas sumas ahora son solo de la página actual visible.
+    // Para sumar todo el histórico se requeriría una consulta separada a la BD.
     const totalCanceladas = records.reduce(
       (acc, r) => acc + (r.total_cancelled || 0),
       0
@@ -135,11 +158,23 @@ export default function SupervisorPage({ profile }) {
       0
     );
     return { totalRegistros, totalCanceladas, totalEnviadas };
-  }, [records]);
+  }, [records, totalRecordsCount]);
+
+  const handleApplyFilters = () => {
+    // Si estamos en la página 1, recargamos manual, si no, setPage(1) disparará el efecto
+    if (page === 1) {
+      loadRecords();
+    } else {
+      setPage(1);
+    }
+  };
 
   const handleClearFilters = () => {
     setFilters({ branchId: 'all', date: null });
-    loadRecords();
+    // Al limpiar, volvemos a la página 1 (esto dispara el useEffect de loadRecords)
+    setPage(1);
+    // Si ya estábamos en página 1, forzamos recarga:
+    if (page === 1) setTimeout(() => loadRecords(), 0); 
   };
 
   const openDetail = async (record) => {
@@ -308,7 +343,7 @@ export default function SupervisorPage({ profile }) {
     Swal.fire({
       icon: 'success',
       title: 'Excel descargado',
-      text: 'El archivo se descargó correctamente',
+      text: 'El archivo se descargó correctamente (página actual)',
       timer: 1500,
       showConfirmButton: false,
     });
@@ -405,7 +440,7 @@ export default function SupervisorPage({ profile }) {
       Swal.fire({
         icon: 'success',
         title: 'Excel descargado',
-        text: 'El archivo con detalle se descargó correctamente',
+        text: 'El archivo con detalle se descargó correctamente (página actual)',
         timer: 1500,
         showConfirmButton: false,
       });
@@ -540,7 +575,7 @@ export default function SupervisorPage({ profile }) {
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={loadRecords}
+              onClick={handleApplyFilters}
               style={{
                 background: '#ff3b30',
                 color: '#fff',
@@ -584,13 +619,13 @@ export default function SupervisorPage({ profile }) {
           <h2 style={{ margin: '6px 0 0', fontSize: 28 }}>{totals.totalRegistros}</h2>
         </div>
         <div style={{ background: '#111', borderRadius: 16, padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Pizzas Canceladas</p>
+          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Pizzas Canceladas (Pág)</p>
           <h2 style={{ margin: '6px 0 0', fontSize: 28, color: '#ffcc00' }}>
             {totals.totalCanceladas}
           </h2>
         </div>
         <div style={{ background: '#111', borderRadius: 16, padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Enviadas a Central</p>
+          <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>Enviadas a Central (Pág)</p>
           <h2 style={{ margin: '6px 0 0', fontSize: 28, color: '#4caf50' }}>
             {totals.totalEnviadas}
           </h2>
@@ -618,7 +653,7 @@ export default function SupervisorPage({ profile }) {
           <div>
             <h3 style={{ margin: 0, color: '#ffcc00' }}>Registros de Cancelaciones</h3>
             <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 13 }}>
-              Mostrando {records.length} registros
+              Página {page} - Mostrando {records.length} registros
             </p>
           </div>
           
@@ -746,6 +781,45 @@ export default function SupervisorPage({ profile }) {
             </table>
           </div>
         )}
+
+        {/* CONTROLES DE PAGINACIÓN */}
+        {totalRecordsCount > 0 && (
+          <div style={{ display: 'flex', gap: '15px', marginTop: '20px', justifyContent: 'center', alignItems: 'center' }}>
+            <button 
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page === 1}
+              style={{ 
+                padding: '8px 16px', 
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+                background: page === 1 ? '#333' : '#444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            >
+              Anterior
+            </button>
+
+            <span style={{ color: '#aaa' }}>
+              Página <b style={{ color: '#fff' }}>{page}</b> de {Math.ceil(totalRecordsCount / ITEMS_PER_PAGE)}
+            </span>
+
+            <button 
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={page * ITEMS_PER_PAGE >= totalRecordsCount}
+              style={{ 
+                padding: '8px 16px',
+                cursor: (page * ITEMS_PER_PAGE >= totalRecordsCount) ? 'not-allowed' : 'pointer',
+                background: (page * ITEMS_PER_PAGE >= totalRecordsCount) ? '#333' : '#444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            >
+              Siguiente 
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Detalle */}
@@ -799,7 +873,7 @@ export default function SupervisorPage({ profile }) {
 
                 {selectedRecord.total_sent > 0 ? (
                   <p style={{ margin: 0, color: '#4caf50' }}>
-                     Validación realizada: llegaron {selectedRecord.total_sent} pizzas.
+                      Validación realizada: llegaron {selectedRecord.total_sent} pizzas.
                   </p>
                 ) : (
                   <>
